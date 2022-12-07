@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -15,7 +16,6 @@ import (
 	"github.com/m1guelpf/chatgpt-telegram/src/config"
 	"github.com/m1guelpf/chatgpt-telegram/src/markdown"
 	"github.com/m1guelpf/chatgpt-telegram/src/ratelimit"
-	"github.com/m1guelpf/chatgpt-telegram/src/session"
 )
 
 type Conversation struct {
@@ -27,18 +27,6 @@ func main() {
 	config, err := config.Init()
 	if err != nil {
 		log.Fatalf("Couldn't load config: %v", err)
-	}
-
-	if config.OpenAISession == "" {
-		session, err := session.GetSession()
-		if err != nil {
-			log.Fatalf("Couldn't get OpenAI session: %v", err)
-		}
-
-		err = config.Set("OpenAISession", session)
-		if err != nil {
-			log.Fatalf("Couldn't save OpenAI session: %v", err)
-		}
 	}
 
 	chatGPT := chatgpt.Init(config)
@@ -87,7 +75,8 @@ func main() {
 		}
 
 		bot.Request(tgbotapi.NewChatAction(update.Message.Chat.ID, "typing"))
-		if !update.Message.IsCommand() {
+		isAtChatBotInGroup := (update.Message.Chat.Type == "group" || update.Message.Chat.Type == "supergroup") && strings.HasPrefix(update.Message.Text, "@"+bot.Self.UserName)
+		if !update.Message.IsCommand() && (update.Message.Chat.IsPrivate() || isAtChatBotInGroup) {
 			feed, err := chatGPT.SendMessage(update.Message.Text, userConversations[update.Message.Chat.ID].ConversationID, userConversations[update.Message.Chat.ID].LastMessageID)
 			if err != nil {
 				msg.Text = fmt.Sprintf("Error: %v", err)

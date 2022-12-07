@@ -68,8 +68,8 @@ func (c *Client) Connect(message string, conversationId string, parentMessageId 
 	req.Header.Set("Accept", "text/event-stream")
 	req.Header.Set("Content-Type", "application/json")
 
-	http := &http.Client{}
-	resp, err := http.Do(req)
+	client := &http.Client{}
+	resp, err := client.Do(req)
 	if err != nil {
 		return errors.New(fmt.Sprintf("failed to connect to SSE: %v", err))
 	}
