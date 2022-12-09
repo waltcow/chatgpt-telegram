@@ -87,11 +87,13 @@ func main() {
 			chatGPT.ResetConversation(updateChatID)
 			text = "Started a new conversation. Enjoy!"
 		default:
-			text = "Unknown command. Send /help to see a list of commands."
+			continue
 		}
 
-		if _, err := bot.Send(updateChatID, updateMessageID, text); err != nil {
-			log.Printf("Error sending message: %v", err)
+		if text != "" {
+			if _, err := bot.Send(updateChatID, updateMessageID, text); err != nil {
+				log.Printf("Error sending message: %v", err)
+			}
 		}
 	}
 }
