@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/m1guelpf/chatgpt-telegram/src/config"
 	"github.com/m1guelpf/chatgpt-telegram/src/expirymap"
 	"github.com/m1guelpf/chatgpt-telegram/src/sse"
 )
@@ -48,10 +47,10 @@ type ChatResponse struct {
 	Message string
 }
 
-func Init(config *config.Config) *ChatGPT {
+func Init(OpenAISession string) *ChatGPT {
 	return &ChatGPT{
 		AccessTokenMap: expirymap.New(),
-		SessionToken:   config.OpenAISession,
+		SessionToken:   OpenAISession,
 		conversations:  make(map[int64]Conversation),
 	}
 }

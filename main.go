@@ -15,18 +15,14 @@ import (
 )
 
 func main() {
-	persistentConfig, err := config.LoadOrCreatePersistentConfig()
-	if err != nil {
-		log.Fatalf("Couldn't load config: %v", err)
-	}
-
-	chatGPT := chatgpt.Init(persistentConfig)
-	log.Println("Started ChatGPT")
-
 	envConfig, err := config.LoadEnvConfig(".env")
 	if err != nil {
 		log.Fatalf("Couldn't load .env config: %v", err)
 	}
+
+	chatGPT := chatgpt.Init(envConfig.OpenAISession)
+	log.Println("Started ChatGPT")
+
 	if err := envConfig.ValidateWithDefaults(); err != nil {
 		log.Fatalf("Invalid .env config: %v", err)
 	}
@@ -52,10 +48,13 @@ func main() {
 		}
 
 		var (
-			updateText      = update.Message.Text
-			updateChatID    = update.Message.Chat.ID
-			updateMessageID = update.Message.MessageID
-			updateUserID    = update.Message.From.ID
+			updateText       = update.Message.Text
+			updateChatID     = update.Message.Chat.ID
+			updateMessageID  = update.Message.MessageID
+			updateUserID     = update.Message.From.ID
+			isChatBotInGroup = update.Message.Chat.Type == "group" || update.Message.Chat.Type == "supergroup"
+			isAtChatBot      = strings.HasPrefix(update.Message.Text, "@"+bot.Username) || strings.HasSuffix(update.Message.Text, "@"+bot.Username)
+			isPrivateChat    = update.Message.Chat.IsPrivate()
 		)
 
 		if len(envConfig.TelegramID) != 0 && !envConfig.HasTelegramID(updateUserID) {
@@ -63,10 +62,6 @@ func main() {
 			bot.Send(updateChatID, updateMessageID, "You are not authorized to use this bot.")
 			continue
 		}
-
-		isChatBotInGroup := update.Message.Chat.Type == "group" || update.Message.Chat.Type == "supergroup"
-		isAtChatBot := strings.HasPrefix(update.Message.Text, "@"+bot.Username) || strings.HasSuffix(update.Message.Text, "@"+bot.Username)
-		isPrivateChat := update.Message.Chat.IsPrivate()
 
 		if !update.Message.IsCommand() && (isChatBotInGroup && isAtChatBot || isPrivateChat) {
 			bot.SendTyping(updateChatID)
@@ -89,10 +84,15 @@ func main() {
 		case "reload":
 			chatGPT.ResetConversation(updateChatID)
 			text = "Started a new conversation. Enjoy!"
-		case "session":
-			// todo: update session when user is admin
+		case "renew":
+			err := chatGPT.EnsureAuth()
+			if err != nil {
+				text = fmt.Sprintf("Error renewing auth: %v", err)
+			} else {
+				text = "Renewed auth successfully!"
+			}
 		default:
-			text = "Unknown command. Send /help to see a list of commands."
+			continue
 		}
 
 		if _, err := bot.Send(updateChatID, updateMessageID, text); err != nil {
