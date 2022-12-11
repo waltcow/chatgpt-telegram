@@ -5,12 +5,12 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/m1guelpf/chatgpt-telegram/src/chatgpt"
 	"github.com/m1guelpf/chatgpt-telegram/src/config"
-	"github.com/m1guelpf/chatgpt-telegram/src/session"
 	"github.com/m1guelpf/chatgpt-telegram/src/tgbot"
 )
 
@@ -18,17 +18,6 @@ func main() {
 	persistentConfig, err := config.LoadOrCreatePersistentConfig()
 	if err != nil {
 		log.Fatalf("Couldn't load config: %v", err)
-	}
-
-	if persistentConfig.OpenAISession == "" {
-		token, err := session.GetSession()
-		if err != nil {
-			log.Fatalf("Couldn't get OpenAI session: %v", err)
-		}
-
-		if err = persistentConfig.SetSessionToken(token); err != nil {
-			log.Fatalf("Couldn't save OpenAI session: %v", err)
-		}
 	}
 
 	chatGPT := chatgpt.Init(persistentConfig)
@@ -75,7 +64,11 @@ func main() {
 			continue
 		}
 
-		if !update.Message.IsCommand() {
+		isChatBotInGroup := update.Message.Chat.Type == "group" || update.Message.Chat.Type == "supergroup"
+		isAtChatBot := strings.HasPrefix(update.Message.Text, "@"+bot.Username) || strings.HasSuffix(update.Message.Text, "@"+bot.Username)
+		isPrivateChat := update.Message.Chat.IsPrivate()
+
+		if !update.Message.IsCommand() && (isChatBotInGroup && isAtChatBot || isPrivateChat) {
 			bot.SendTyping(updateChatID)
 
 			feed, err := chatGPT.SendMessage(updateText, updateChatID)
@@ -96,6 +89,8 @@ func main() {
 		case "reload":
 			chatGPT.ResetConversation(updateChatID)
 			text = "Started a new conversation. Enjoy!"
+		case "session":
+			// todo: update session when user is admin
 		default:
 			text = "Unknown command. Send /help to see a list of commands."
 		}
