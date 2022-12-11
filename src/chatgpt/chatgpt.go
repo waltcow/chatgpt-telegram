@@ -47,10 +47,10 @@ type ChatResponse struct {
 	Message string
 }
 
-func Init(OpenAISession string) *ChatGPT {
+func Init(openAISession string) *ChatGPT {
 	return &ChatGPT{
 		AccessTokenMap: expirymap.New(),
-		SessionToken:   OpenAISession,
+		SessionToken:   openAISession,
 		conversations:  make(map[int64]Conversation),
 	}
 }
@@ -119,6 +119,18 @@ func (c *ChatGPT) SendMessage(message string, tgChatID int64) (chan ChatResponse
 	}()
 
 	return r, nil
+}
+
+func (c *ChatGPT) UpdateSessionToken(openAISession string) (string, error) {
+	if c.IsAuthenticated() {
+		log.Println("Already authenticated, not updating session token")
+		return c.SessionToken, errors.New("already authenticated, not updating session token")
+	}
+
+	c.SessionToken = openAISession
+	c.AccessTokenMap = expirymap.New()
+
+	return c.refreshAccessToken()
 }
 
 func (c *ChatGPT) refreshAccessToken() (string, error) {

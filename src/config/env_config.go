@@ -84,3 +84,50 @@ func (e *EnvConfig) ValidateWithDefaults() error {
 	}
 	return nil
 }
+
+func UpdateEnvConfig(path string, key string, value interface{}) (*EnvConfig, error) {
+	fileExists := fileExists(path)
+	if !fileExists {
+		log.Printf("config file %s does not exist, using env variables", path)
+	}
+
+	v := viper.New()
+	v.SetConfigType("env")
+	v.AutomaticEnv()
+	if err := v.ReadConfig(bytes.NewBufferString(emptyConfig)); err != nil {
+		return nil, err
+	}
+	if fileExists {
+		v.SetConfigFile(path)
+		if err := v.ReadInConfig(); err != nil {
+			return nil, err
+		}
+	}
+
+	var cfg EnvConfig
+
+	if err := v.Unmarshal(&cfg); err != nil {
+		return nil, err
+	}
+
+	switch key {
+	case "TELEGRAM_ID":
+		cfg.TelegramID = append(cfg.TelegramID, value.(int64))
+	case "TELEGRAM_TOKEN":
+		cfg.TelegramToken = value.(string)
+	case "EDIT_WAIT_SECONDS":
+		cfg.EditWaitSeconds = value.(int)
+	case "OPENAI_SESSION":
+		cfg.OpenAISession = value.(string)
+	}
+
+	// Write to file
+	err := v.WriteConfig()
+
+	if err != nil {
+		log.Printf("Error writing config file: %s", err)
+		return nil, err
+	}
+
+	return &cfg, nil
+}

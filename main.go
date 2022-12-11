@@ -53,7 +53,7 @@ func main() {
 			updateMessageID  = update.Message.MessageID
 			updateUserID     = update.Message.From.ID
 			isChatBotInGroup = update.Message.Chat.Type == "group" || update.Message.Chat.Type == "supergroup"
-			isAtChatBot      = strings.HasPrefix(update.Message.Text, "@"+bot.Username) || strings.HasSuffix(update.Message.Text, "@"+bot.Username)
+			isMentionChatBot = strings.HasPrefix(update.Message.Text, "@"+bot.Username) || strings.HasSuffix(update.Message.Text, "@"+bot.Username)
 			isPrivateChat    = update.Message.Chat.IsPrivate()
 		)
 
@@ -63,7 +63,7 @@ func main() {
 			continue
 		}
 
-		if !update.Message.IsCommand() && (isChatBotInGroup && isAtChatBot || isPrivateChat) {
+		if !update.Message.IsCommand() && (isChatBotInGroup && isMentionChatBot || isPrivateChat) {
 			bot.SendTyping(updateChatID)
 
 			feed, err := chatGPT.SendMessage(updateText, updateChatID)
@@ -85,11 +85,18 @@ func main() {
 			chatGPT.ResetConversation(updateChatID)
 			text = "Started a new conversation. Enjoy!"
 		case "renew":
-			err := chatGPT.EnsureAuth()
+			sessionToken := update.Message.CommandArguments()
+			resp, err := chatGPT.UpdateSessionToken(sessionToken)
 			if err != nil {
 				text = fmt.Sprintf("Error renewing auth: %v", err)
 			} else {
-				text = "Renewed auth successfully!"
+				text = "Renewed auth successfully! " + resp
+				_, err = config.UpdateEnvConfig(".env", "OPENAI_SESSION", sessionToken)
+				if err != nil {
+					log.Printf("Error updating .env file: %v", err)
+					text += " (but couldn't update .env file)"
+				}
+				text += " (updated .env file)"
 			}
 		default:
 			continue
