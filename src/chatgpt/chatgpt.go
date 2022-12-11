@@ -124,8 +124,10 @@ func (c *ChatGPT) SendMessage(message string, tgChatID int64) (chan ChatResponse
 func (c *ChatGPT) refreshAccessToken() (string, error) {
 	cachedAccessToken, ok := c.AccessTokenMap.Get(KEY_ACCESS_TOKEN)
 	if ok {
+		log.Println("Using cached access token")
 		return cachedAccessToken, nil
 	}
+	log.Println("Fetching new access token")
 
 	req, err := http.NewRequest("GET", "https://chat.openai.com/api/auth/session", nil)
 	if err != nil {
@@ -165,6 +167,8 @@ func (c *ChatGPT) refreshAccessToken() (string, error) {
 		return "", fmt.Errorf("failed to parse expiry time: %v", err)
 	}
 	c.AccessTokenMap.Set(KEY_ACCESS_TOKEN, accessToken, expiryTime.Sub(time.Now()))
+
+	log.Println("Fetched new access token", accessToken)
 
 	return accessToken, nil
 }
